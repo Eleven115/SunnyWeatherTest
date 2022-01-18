@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.lang.Exception
+import kotlin.coroutines.CoroutineContext
 
 /*
 * Repository   这里用的是无法直接取得的LiveData对象的平替方法
@@ -20,56 +21,52 @@ object Repository {
       提供一个挂起函数的上下文
     * */
 //    Dispatchers.IO 将所有代码都指定在子线程中    下面的代码相当于去服务器请求数据
-    fun searchPlaces(query: String) = liveData(Dispatchers.IO) {
-        val result = try {
-            val placeResponse = SunnyWeatherNetwork.searchPlaces(query)
-            if (placeResponse.status == "ok") {
-                val places = placeResponse.places
-//                Kotlin内置的Result.success()方法来包装获 取的城市数据列表
-                Result.success(places)
-            } else {
-                Result.failure(RuntimeException("response status is ${placeResponse.status}"))
-            }
-        } catch (e: Exception) {
-            Result.failure<List<Place>>(e)
+    fun searchPlaces(query: String) = fire(Dispatchers.IO) {
+        val placeResponse = SunnyWeatherNetwork.searchPlaces(query)
+        if (placeResponse.status == "ok") {
+            val places = placeResponse.places
+            Result.success(places)
+        } else {
+            Result.failure(RuntimeException("response status is ${placeResponse.status}"))
         }
-        /*
-        * emit()方法将包装的结果发射出去，这个emit()方法其实类似于调用LiveData的
-          setValue()方法来通知数据变化
-        * */
-        emit(result)
     }
-
 
     //    下面是实时天气和未来天气
-    fun refreshWeather(lng: String, lat: String) = liveData(Dispatchers.IO) {
-        val result = try {
-            coroutineScope {
-                val deferredRealtime = async {
-                    SunnyWeatherNetwork.getRealtimeWeather(lng, lat)
-                }
-                val deferredDaily = async {
-                    SunnyWeatherNetwork.getDailyWeather(lng, lat)
-                }
-                val realtimeResponse = deferredRealtime.await()
-                val dailyResponse = deferredDaily.await()
-                if (realtimeResponse.status == "ok" && dailyResponse.status == "ok") {
-                    val weather =
-                        Weather(realtimeResponse.result.realtime, dailyResponse.result.daily)
-                    Result.success(weather)
-                } else {
-                    Result.failure(
-                        RuntimeException(
-                            "realtime response status is ${realtimeResponse.status}" +
-                                    "daily response status is ${dailyResponse.status}"
-                        )
-                    )
-                }
-
+    fun refreshWeather(lng: String, lat: String) = fire(Dispatchers.IO) {
+        coroutineScope {
+            val deferredRealtime = async {
+                SunnyWeatherNetwork.getRealtimeWeather(lng, lat)
             }
-        } catch (e: Exception) {
-            Result.failure<Weather>(e)
+            val deferredDaily = async {
+                SunnyWeatherNetwork.getDailyWeather(lng, lat)
+            }
+            val realtimeResponse = deferredRealtime.await()
+            val dailyResponse = deferredDaily.await()
+            if (realtimeResponse.status == "ok" && dailyResponse.status == "ok") {
+                val weather = Weather(
+                    realtimeResponse.result.realtime,
+                    dailyResponse.result.daily
+                )
+                Result.success(weather)
+            } else {
+                Result.failure(
+                    RuntimeException(
+                        "realtime response status is ${realtimeResponse.status}" +
+                                "daily response status is ${dailyResponse.status}"
+                    )
+                )
+            }
         }
-        emit(result)
     }
+
+    private fun <T> fire(context: CoroutineContext, block: suspend () -> Result<T>) =
+        liveData<Result<T>>(context) {
+            val result = try {
+                block()
+            } catch (e: Exception) {
+                Result.failure<T>(e)
+            }
+//emit()方法将包装的结果发射出去，这个emit()方法其实类似于调用LiveData的setValue()方法来通知数据变化
+            emit(result)
+        }
 }
