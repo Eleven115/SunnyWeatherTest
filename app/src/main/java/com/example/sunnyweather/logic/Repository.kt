@@ -2,6 +2,7 @@ package com.example.sunnyweather.logic
 
 
 import androidx.lifecycle.liveData
+import com.example.sunnyweather.logic.dao.PlaceDao
 import com.example.sunnyweather.logic.model.Place
 import com.example.sunnyweather.logic.model.Weather
 import com.example.sunnyweather.logic.network.SunnyWeatherNetwork
@@ -16,6 +17,13 @@ import kotlin.coroutines.CoroutineContext
 *  ：liveData()函数是lifecycle-livedata-ktx库提供的一个非常强大且好用的功能
 * */
 object Repository {
+
+    fun savePlace(place: Place) = PlaceDao.savePlace(place)
+
+    fun getSavedPlace() = PlaceDao.getSavePlace()
+
+    fun isPlaceSaved() = PlaceDao.isPlaceSaved()
+
     /*
     * liveData() 它可以自动构建并返回一个LiveData对象，然后在它的代码块中
       提供一个挂起函数的上下文
