@@ -5,7 +5,7 @@
     android:id="@+id/weatherLayout"
     android:scrollbars="none"
     android:overScrollMode="never"
-    android:visibility="invisible">
+    android:visibility="visible">
 
     <LinearLayout
         android:orientation="vertical"
